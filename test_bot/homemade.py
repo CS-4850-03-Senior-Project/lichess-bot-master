@@ -11,7 +11,6 @@ from lib.types import OPTIONS_GO_EGTB_TYPE, COMMANDS_TYPE, MOVE
 platform = sys.platform
 file_extension = ".exe" if platform == "win32" else ""
 
-
 class Stockfish(ExampleEngine):
     """A homemade engine that uses Stockfish."""
 
@@ -25,3 +24,4 @@ class Stockfish(ExampleEngine):
                root_moves: MOVE) -> chess.engine.PlayResult:
         """Get a move using Stockfish."""
         return self.engine.play(board, time_limit)
+

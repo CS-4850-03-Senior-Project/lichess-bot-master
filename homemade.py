@@ -17,11 +17,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+
+class RedChessAI(MinimalEngine):
+    
+    def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
+        legal_moves = list(board.legal_moves)
+        if not legal_moves:
+            return '0000'
+        
+        move = random.choice(legal_moves)
+        return PlayResult(move, None)
+
+
+# Below are the example engines 
+
+
 class ExampleEngine(MinimalEngine):
     """An example engine that all homemade engines inherit."""
 
     pass
-
 
 # Bot names and ideas from tom7's excellent eloWorld video
 
