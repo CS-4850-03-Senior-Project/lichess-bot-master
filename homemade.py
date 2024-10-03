@@ -9,17 +9,18 @@ import random
 from lib.engine_wrapper import MinimalEngine
 from lib.types import MOVE, HOMEMADE_ARGS_TYPE
 import logging
-
+import numpy as np
+import torch
+import os
+from EvaluationNetwork import EvaluationNetwork
 
 # Use this logger variable to print messages to the console or log files.
 # logger.info("message") will always print "message" to the console or log file.
 # logger.debug("message") will only print "message" if verbose logging is enabled.
 logger = logging.getLogger(__name__)
 
-
-
 class RedChessAI(MinimalEngine):
-    
+
     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
         legal_moves = list(board.legal_moves)
         if not legal_moves:
@@ -29,12 +30,105 @@ class RedChessAI(MinimalEngine):
         return PlayResult(move, None)
 
 
-# Below are the example engines 
+# These should be defined inside of RCAI_RL1, but MinimalEngine requires a
+# configuration file I've yet to familiarize myself with
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model_path = os.path.join("MODELS", "RedChessAI20241002143842.pth")
+model = EvaluationNetwork().to(device)
+model.load_state_dict(torch.load(model_path))
 
+class RCAI_RL1(MinimalEngine):
+
+    # # I am not sure what is required for the the super() constructor yet
+    # def __init__(self):
+    #     super().__init__()
+    #     self.device = torch.device(
+    #         "cuda:0" if torch.cuda.is_available() else "cpu")
+    #     print(f"Using device: {self.device}")
+
+    #     # Load the pretrained model
+    #     model_path = os.path.join("MODELS", "RedChessAI20241002143842.pth")
+    #     self.model = EvaluationNetwork().to(self.device)
+    #     self.model.load_state_dict(torch.load(model_path))
+
+    # Function to convert the chess board state to a tensor representation
+    def board_to_tensor(self, board):
+        # Initialize a tensor of shape (14, 8, 8) filled with zeros
+        board_tensor = np.zeros((14, 8, 8), dtype=np.float32)
+        
+        # Mapping from piece type to index in the tensor channels
+        piece_indices = {
+            chess.PAWN: 0,
+            chess.KNIGHT: 1,
+            chess.BISHOP: 2,
+            chess.ROOK: 3,
+            chess.QUEEN: 4,
+            chess.KING: 5
+        }
+        
+        # Map pieces on the board to the tensor
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece is not None:
+                # Determine the offset for the piece color
+                color_offset = 0 if piece.color == chess.WHITE else 6
+                # Get the index for the piece type
+                piece_index = piece_indices[piece.piece_type] + color_offset
+                # Convert the square index to 2D coordinates (x, y)
+                x, y = divmod(square, 8)
+                # Set the presence of the piece in the tensor
+                board_tensor[piece_index, x, y] = 1.0
+        
+        # Initialize attack maps for white and black pieces
+        white_attacks = np.zeros((8, 8), dtype=np.float32)
+        black_attacks = np.zeros((8, 8), dtype=np.float32)
+        
+        # Generate attack maps
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece is not None:
+                # Get the squares attacked by the piece
+                attacks = board.attacks(square)
+                for attacked_square in attacks:
+                    x, y = divmod(attacked_square, 8)
+                    if piece.color == chess.WHITE:
+                        white_attacks[x, y] = 1.0
+                    else:
+                        black_attacks[x, y] = 1.0
+        
+        # Add attack maps to the tensor
+        board_tensor[12] = white_attacks
+        board_tensor[13] = black_attacks
+        
+        # Convert the numpy array to a PyTorch tensor and add batch dimension
+        return torch.from_numpy(board_tensor).unsqueeze(0).to(device)
+
+    def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
+        legal_moves = list(board.legal_moves)
+        move_values = []
+
+        # Evaluate all legal moves using current_model
+        for move in legal_moves:
+            board.push(move)
+            state_tensor = self.board_to_tensor(board)
+            value = model(state_tensor).item()
+            move_values.append(value)
+            board.pop()
+
+        # Apply softmax to the predicted values
+        logits = np.array(move_values)
+        probabilities = np.exp(logits - np.max(logits))
+        probabilities /= probabilities.sum()
+
+        # Select a move based on the probabilities
+        move_index = np.random.choice(len(legal_moves), p=probabilities)
+        chosen_move = legal_moves[move_index]
+        return PlayResult(chosen_move, None)
+
+# Below are the example engines 
 
 class ExampleEngine(MinimalEngine):
     """An example engine that all homemade engines inherit."""
-
     pass
 
 # Bot names and ideas from tom7's excellent eloWorld video
