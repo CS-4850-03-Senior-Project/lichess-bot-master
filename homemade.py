@@ -90,30 +90,7 @@ model = EvaluationNetwork().to(device)
 checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint['model_state_dict'])
 
-# class RCAI_P1(MinimalEngine):
-#     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
-#         legal_moves = list(board.legal_moves)
-#         move_values = []
-
-#         for move in legal_moves:
-#             board.push(move)
-#             tensor = board_to_tensor(board)
-
-
 class RCAI_RL1(MinimalEngine):
-
-    # # I am not sure what is required for the the super() constructor yet
-    # def __init__(self):
-    #     super().__init__()
-    #     self.device = torch.device(
-    #         "cuda:0" if torch.cuda.is_available() else "cpu")
-    #     print(f"Using device: {self.device}")
-
-    #     # Load the pretrained model
-    #     model_path = os.path.join("MODELS", "RedChessAI20241002143842.pth")
-    #     self.model = EvaluationNetwork().to(self.device)
-    #     self.model.load_state_dict(torch.load(model_path))
-
     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
         legal_moves = list(board.legal_moves)
         move_values = []
