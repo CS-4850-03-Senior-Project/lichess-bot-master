@@ -28,14 +28,77 @@ class RedChessAI(MinimalEngine):
         
         move = random.choice(legal_moves)
         return PlayResult(move, None)
+    
+# Function to convert the chess board state to a tensor representation
+def board_to_tensor(board):
+    # Initialize a tensor of shape (14, 8, 8) filled with zeros
+    board_tensor = np.zeros((14, 8, 8), dtype=np.float32)
+    
+    # Mapping from piece type to index in the tensor channels
+    piece_indices = {
+        chess.PAWN: 0,
+        chess.KNIGHT: 1,
+        chess.BISHOP: 2,
+        chess.ROOK: 3,
+        chess.QUEEN: 4,
+        chess.KING: 5
+    }
+    
+    # Map pieces on the board to the tensor
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece is not None:
+            # Determine the offset for the piece color
+            color_offset = 0 if piece.color == chess.WHITE else 6
+            # Get the index for the piece type
+            piece_index = piece_indices[piece.piece_type] + color_offset
+            # Convert the square index to 2D coordinates (x, y)
+            x, y = divmod(square, 8)
+            # Set the presence of the piece in the tensor
+            board_tensor[piece_index, x, y] = 1.0
+    
+    # Initialize attack maps for white and black pieces
+    white_attacks = np.zeros((8, 8), dtype=np.float32)
+    black_attacks = np.zeros((8, 8), dtype=np.float32)
+    
+    # Generate attack maps
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece is not None:
+            # Get the squares attacked by the piece
+            attacks = board.attacks(square)
+            for attacked_square in attacks:
+                x, y = divmod(attacked_square, 8)
+                if piece.color == chess.WHITE:
+                    white_attacks[x, y] = 1.0
+                else:
+                    black_attacks[x, y] = 1.0
+    
+    # Add attack maps to the tensor
+    board_tensor[12] = white_attacks
+    board_tensor[13] = black_attacks
+    
+    # Convert the numpy array to a PyTorch tensor and add batch dimension
+    return torch.from_numpy(board_tensor).unsqueeze(0).to(device)
 
 
 # These should be defined inside of RCAI_RL1, but MinimalEngine requires a
 # configuration file I've yet to familiarize myself with
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model_path = os.path.join("MODELS", "RedChessAI20241002143842.pth")
+model_path = os.path.join("MODELS", "RedChessAI20241005164331.pth")
 model = EvaluationNetwork().to(device)
-model.load_state_dict(torch.load(model_path))
+checkpoint = torch.load(model_path)
+model.load_state_dict(checkpoint['model_state_dict'])
+
+# class RCAI_P1(MinimalEngine):
+#     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
+#         legal_moves = list(board.legal_moves)
+#         move_values = []
+
+#         for move in legal_moves:
+#             board.push(move)
+#             tensor = board_to_tensor(board)
+
 
 class RCAI_RL1(MinimalEngine):
 
@@ -51,58 +114,6 @@ class RCAI_RL1(MinimalEngine):
     #     self.model = EvaluationNetwork().to(self.device)
     #     self.model.load_state_dict(torch.load(model_path))
 
-    # Function to convert the chess board state to a tensor representation
-    def board_to_tensor(self, board):
-        # Initialize a tensor of shape (14, 8, 8) filled with zeros
-        board_tensor = np.zeros((14, 8, 8), dtype=np.float32)
-        
-        # Mapping from piece type to index in the tensor channels
-        piece_indices = {
-            chess.PAWN: 0,
-            chess.KNIGHT: 1,
-            chess.BISHOP: 2,
-            chess.ROOK: 3,
-            chess.QUEEN: 4,
-            chess.KING: 5
-        }
-        
-        # Map pieces on the board to the tensor
-        for square in chess.SQUARES:
-            piece = board.piece_at(square)
-            if piece is not None:
-                # Determine the offset for the piece color
-                color_offset = 0 if piece.color == chess.WHITE else 6
-                # Get the index for the piece type
-                piece_index = piece_indices[piece.piece_type] + color_offset
-                # Convert the square index to 2D coordinates (x, y)
-                x, y = divmod(square, 8)
-                # Set the presence of the piece in the tensor
-                board_tensor[piece_index, x, y] = 1.0
-        
-        # Initialize attack maps for white and black pieces
-        white_attacks = np.zeros((8, 8), dtype=np.float32)
-        black_attacks = np.zeros((8, 8), dtype=np.float32)
-        
-        # Generate attack maps
-        for square in chess.SQUARES:
-            piece = board.piece_at(square)
-            if piece is not None:
-                # Get the squares attacked by the piece
-                attacks = board.attacks(square)
-                for attacked_square in attacks:
-                    x, y = divmod(attacked_square, 8)
-                    if piece.color == chess.WHITE:
-                        white_attacks[x, y] = 1.0
-                    else:
-                        black_attacks[x, y] = 1.0
-        
-        # Add attack maps to the tensor
-        board_tensor[12] = white_attacks
-        board_tensor[13] = black_attacks
-        
-        # Convert the numpy array to a PyTorch tensor and add batch dimension
-        return torch.from_numpy(board_tensor).unsqueeze(0).to(device)
-
     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
         legal_moves = list(board.legal_moves)
         move_values = []
@@ -110,14 +121,18 @@ class RCAI_RL1(MinimalEngine):
         # Evaluate all legal moves using current_model
         for move in legal_moves:
             board.push(move)
-            state_tensor = self.board_to_tensor(board)
+            # TODO: Minimax algorithm somewhere in the next 3 lines of code
+            # Makes the board machine readable
+            state_tensor = board_to_tensor(board)
+            # How strong the AI thinks this board position is
             value = model(state_tensor).item()
-            move_values.append(value)
+            # Storing the value of the board for later analysis
+            move_values.append(value) 
             board.pop()
 
         # Apply softmax to the predicted values
         logits = np.array(move_values)
-        probabilities = np.exp(logits - np.max(logits))
+        probabilities = np.exp(2*logits)
         probabilities /= probabilities.sum()
 
         # Select a move based on the probabilities
