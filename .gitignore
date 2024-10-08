@@ -9,7 +9,6 @@ lichess_bot_auto_logs/*
 *.log
 *.txt
 TEMP/*
-MODELS/
 
 # Environments
 .env
@@ -19,3 +18,4 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
