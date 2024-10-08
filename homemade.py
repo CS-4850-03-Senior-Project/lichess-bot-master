@@ -12,7 +12,8 @@ import logging
 import numpy as np
 import torch
 import os
-from EvaluationNetwork import EvaluationNetwork
+from EvaluationNetworkTanh import EvaluationNetwork
+from typing import List
 
 # Use this logger variable to print messages to the console or log files.
 # logger.info("message") will always print "message" to the console or log file.
@@ -85,7 +86,7 @@ def board_to_tensor(board):
 # These should be defined inside of RCAI_RL1, but MinimalEngine requires a
 # configuration file I've yet to familiarize myself with
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model_path = os.path.join("MODELS", "RedChessAI20241005164331.pth")
+model_path = os.path.join("MODELS", "Pretrained20241008172417.pth")
 model = EvaluationNetwork().to(device)
 checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint['model_state_dict'])
@@ -93,7 +94,7 @@ model.load_state_dict(checkpoint['model_state_dict'])
 class RCAI_RL1(MinimalEngine):
     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
         legal_moves = list(board.legal_moves)
-        move_values = []
+        move_values: list[MoveValue] = []
 
         # Evaluate all legal moves using current_model
         for move in legal_moves:
@@ -116,6 +117,40 @@ class RCAI_RL1(MinimalEngine):
         move_index = np.random.choice(len(legal_moves), p=probabilities)
         chosen_move = legal_moves[move_index]
         return PlayResult(chosen_move, None)
+
+class MoveValue:
+    def __init__(self, move: chess.Move, value: float):
+        self.move: chess.Move = move
+        self.value: float = value
+
+
+class RCAI_Tanh(MinimalEngine):
+    def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
+        legal_moves = list(board.legal_moves)
+        move_values: List[MoveValue] = []
+        color = board.turn
+        value_multiplier = 1 if color == chess.WHITE else -1
+
+        # Evaluate all legal moves using current_model
+        for move in legal_moves:
+            board.push(move)
+            # TODO: Minimax algorithm somewhere in the next 4 lines of code
+            # Makes the board machine readable
+            state_tensor = board_to_tensor(board)
+            # How strong the AI thinks this board position is
+            with torch.no_grad():
+                value = model(state_tensor).item() * value_multiplier
+            # Storing the value of the board for later analysis
+            move_values.append(MoveValue(move,value)) 
+            board.pop()
+        
+        # Sort the moves from best to worst (descending)
+        move_values.sort(key=lambda mv: mv.value, reverse=True)
+
+        # This can be extended to consider the top 3 moves
+        top_move = move_values[0]
+
+        return PlayResult(top_move.move, None)
 
 # Below are the example engines 
 
