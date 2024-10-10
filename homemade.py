@@ -86,7 +86,7 @@ def board_to_tensor(board):
 # These should be defined inside of RCAI_RL1, but MinimalEngine requires a
 # configuration file I've yet to familiarize myself with
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model_path = os.path.join("MODELS", "Pretrained20241008172417.pth")
+model_path = os.path.join("MODELS", "Pretrained20241009194827.pth")
 model = EvaluationNetwork().to(device)
 checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint['model_state_dict'])
