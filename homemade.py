@@ -20,16 +20,6 @@ from typing import List
 # logger.debug("message") will only print "message" if verbose logging is enabled.
 logger = logging.getLogger(__name__)
 
-class RedChessAI(MinimalEngine):
-
-    def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
-        legal_moves = list(board.legal_moves)
-        if not legal_moves:
-            return '0000'
-        
-        move = random.choice(legal_moves)
-        return PlayResult(move, None)
-    
 # Function to convert the chess board state to a tensor representation
 def board_to_tensor(board):
     # Initialize a tensor of shape (14, 8, 8) filled with zeros
@@ -82,7 +72,6 @@ def board_to_tensor(board):
     # Convert the numpy array to a PyTorch tensor and add batch dimension
     return torch.from_numpy(board_tensor).unsqueeze(0).to(device)
 
-
 # These should be defined inside of RCAI_RL1, but MinimalEngine requires a
 # configuration file I've yet to familiarize myself with
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -90,33 +79,6 @@ model_path = os.path.join("MODELS", "Pretrained20241009194827.pth")
 model = EvaluationNetwork().to(device)
 checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint['model_state_dict'])
-
-class RCAI_RL1(MinimalEngine):
-    def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
-        legal_moves = list(board.legal_moves)
-        move_values: list[MoveValue] = []
-
-        # Evaluate all legal moves using current_model
-        for move in legal_moves:
-            board.push(move)
-            # TODO: Minimax algorithm somewhere in the next 3 lines of code
-            # Makes the board machine readable
-            state_tensor = board_to_tensor(board)
-            # How strong the AI thinks this board position is
-            value = model(state_tensor).item()
-            # Storing the value of the board for later analysis
-            move_values.append(value) 
-            board.pop()
-
-        # Apply softmax to the predicted values
-        logits = np.array(move_values)
-        probabilities = np.exp(2*logits)
-        probabilities /= probabilities.sum()
-
-        # Select a move based on the probabilities
-        move_index = np.random.choice(len(legal_moves), p=probabilities)
-        chosen_move = legal_moves[move_index]
-        return PlayResult(chosen_move, None)
 
 class MoveValue:
     def __init__(self, move: chess.Move, value: float):
