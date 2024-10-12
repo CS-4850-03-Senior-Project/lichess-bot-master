@@ -98,6 +98,9 @@ class RCAI_Tanh(MinimalEngine):
             board.push(move)
             # TODO: Minimax algorithm somewhere in the next 4 lines of code
             # Makes the board machine readable
+            def min_max(current_position, depth):
+                pass
+                
             state_tensor = board_to_tensor(board)
             # How strong the AI thinks this board position is
             with torch.no_grad():
