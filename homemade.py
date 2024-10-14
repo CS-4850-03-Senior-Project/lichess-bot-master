@@ -12,6 +12,7 @@ import logging
 import numpy as np
 import torch
 import os
+import math
 from EvaluationNetworkTanh import EvaluationNetwork
 from typing import List
 
@@ -93,23 +94,48 @@ class RCAI_Tanh(MinimalEngine):
         color = board.turn
         value_multiplier = 1 if color == chess.WHITE else -1
 
-        # Evaluate all legal moves using current_model
+        def min_max(board, depth, max_player, alpha, beta):
+            if depth == 0 or board.is_game_over():
+                # Evaluation function using the value_multiplier based on who's playing
+                value_multiplier = 1 if board.turn == chess.WHITE else -1
+                state_tensor = board_to_tensor(board)
+                with torch.no_grad():
+                    return model(state_tensor).item() * value_multiplier
+
+            if max_player:
+                max_evaluation = -math.inf
+                for move in board.legal_moves:
+                    board.push(move)
+                    move_evaluation = min_max(board, depth - 1, False, alpha, beta)
+                    max_evaluation = max(max_evaluation, move_evaluation)
+                    board.pop()
+                    alpha = max(alpha, move_evaluation)
+                    if beta <= alpha:
+                        break
+                return max_evaluation
+            else:
+                min_evaluation = math.inf
+                for move in board.legal_moves:
+                    board.push(move)
+                    move_evaluation = min_max(board, depth - 1, True, alpha, beta)
+                    min_evaluation = min(min_evaluation, move_evaluation)
+                    board.pop()
+                    beta = min(beta, move_evaluation)
+                    if beta <= alpha:
+                        break
+                return min_evaluation
+
+        # Apply minimax to all the legal moves
+        depth = 3
+        alpha = -math.inf
+        beta = math.inf
         for move in legal_moves:
             board.push(move)
-            # TODO: Minimax algorithm somewhere in the next 4 lines of code
-            # Makes the board machine readable
-            def min_max(current_position, depth):
-                pass
-                
-            state_tensor = board_to_tensor(board)
-            # How strong the AI thinks this board position is
-            with torch.no_grad():
-                value = model(state_tensor).item() * value_multiplier
-            # Storing the value of the board for later analysis
-            move_values.append(MoveValue(move,value)) 
+            move_value = min_max(board, depth - 1, False, alpha, beta)
+            move_values.append(MoveValue(move, move_value))
             board.pop()
-        
-        # Sort the moves from best to worst (descending)
+
+        # Sort moves from best to worst (descending)
         move_values.sort(key=lambda mv: mv.value, reverse=True)
 
         # This can be extended to consider the top 3 moves
