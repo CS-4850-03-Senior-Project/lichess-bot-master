@@ -94,6 +94,7 @@ class RCAI_Tanh(MinimalEngine):
         color = board.turn
         value_multiplier = 1 if color == chess.WHITE else -1
 
+        # minMax function
         def min_max(board, depth, max_player, alpha, beta):
             if depth == 0 or board.is_game_over():
                 # Evaluation function using the value_multiplier based on who's playing
@@ -113,6 +114,7 @@ class RCAI_Tanh(MinimalEngine):
                     if beta <= alpha:
                         break
                 return max_evaluation
+                
             else:
                 min_evaluation = math.inf
                 for move in board.legal_moves:
