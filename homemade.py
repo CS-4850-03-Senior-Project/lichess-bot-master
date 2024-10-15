@@ -98,7 +98,7 @@ class RCAI_Tanh(MinimalEngine):
         def min_max(board, depth, max_player, alpha, beta):
             if depth == 0 or board.is_game_over():
                 # Evaluation function using the value_multiplier based on who's playing
-                value_multiplier = 1 if board.turn == chess.WHITE else -1
+                value_multiplier = 1 if board.turn == chess.WHITE else -1 # White (AI/maximizing player) pieces favor positive numbers
                 state_tensor = board_to_tensor(board)
                 with torch.no_grad():
                     return model(state_tensor).item() * value_multiplier
@@ -107,7 +107,7 @@ class RCAI_Tanh(MinimalEngine):
                 max_evaluation = -math.inf
                 for move in board.legal_moves:
                     board.push(move)
-                    move_evaluation = min_max(board, depth - 1, False, alpha, beta)
+                    move_evaluation = min_max(board, depth - 1, False, alpha, beta) # Adding Alpha-Beta pruning parameters
                     max_evaluation = max(max_evaluation, move_evaluation)
                     board.pop()
                     alpha = max(alpha, move_evaluation)
