@@ -91,18 +91,14 @@ class RCAI_Tanh(MinimalEngine):
     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
         legal_moves = list(board.legal_moves)
         move_values: List[MoveValue] = []
-        color = board.turn
-        value_multiplier = 1 if color == chess.WHITE else -1
 
         # minMax function
         def min_max(board, depth, max_player, alpha, beta):
             if depth == 0 or board.is_game_over():
-                # Evaluation function using the value_multiplier based on who's playing
-                value_multiplier = 1 if board.turn == chess.WHITE else -1
                 state_tensor = board_to_tensor(board)
                 with torch.no_grad():
-                    return model(state_tensor).item() * value_multiplier
-
+                    return model(state_tensor).item()
+                
             if max_player:
                 max_evaluation = -math.inf
                 for move in board.legal_moves:
@@ -138,10 +134,17 @@ class RCAI_Tanh(MinimalEngine):
             board.pop()
 
         # Sort moves from best to worst (descending)
-        move_values.sort(key=lambda mv: mv.value, reverse=True)
+        if board.turn == chess.WHITE:
+            move_values.sort(key=lambda mv: mv.value, reverse=True)
+        else:
+            move_values.sort(key=lambda mv: mv.value, reverse=False)
+            for move_value in move_values:
+                print(f'{move_value.move} {move_value.value}')
 
         # This can be extended to consider the top 3 moves
         top_move = move_values[0]
+
+        print(f'Best move: {top_move.move} with an evaluation of {top_move.value}')
 
         return PlayResult(top_move.move, None)
 
