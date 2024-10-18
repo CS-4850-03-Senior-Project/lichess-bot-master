@@ -86,10 +86,25 @@ class MoveValue:
         self.move: chess.Move = move
         self.value: float = value
 
-
+ 
 class RCAI_Tanh(MinimalEngine):
     def search(self, board: chess.Board, *args: HOMEMADE_ARGS_TYPE):
         legal_moves = list(board.legal_moves)
+
+        # Evaluate the legal moves with no depth
+        legal_move_values: List[MoveValue] = []
+        for move in legal_moves:
+            state_tensor = board_to_tensor(board)
+            with torch.no_grad():
+                value = model(state_tensor).item()
+            legal_move_values.append(MoveValue(move, value))
+
+        # Sort moves from best to worst for this player to assist alpha-beta pruning
+        if board.turn == chess.WHITE:
+            legal_move_values.sort(key=lambda mv: mv.value, reverse=True)
+        else:
+            legal_move_values.sort(key=lambda mv: mv.value, reverse=False)
+
         move_values: List[MoveValue] = []
 
         # minMax function
@@ -103,7 +118,7 @@ class RCAI_Tanh(MinimalEngine):
                 max_evaluation = -math.inf
                 for move in board.legal_moves:
                     board.push(move)
-                    move_evaluation = min_max(board, depth - 1, False, alpha, beta)
+                    move_evaluation = min_max(board, depth - 1, False, alpha, beta) # Adding Alpha-Beta pruning parameters
                     max_evaluation = max(max_evaluation, move_evaluation)
                     board.pop()
                     alpha = max(alpha, move_evaluation)
@@ -119,34 +134,45 @@ class RCAI_Tanh(MinimalEngine):
                     min_evaluation = min(min_evaluation, move_evaluation)
                     board.pop()
                     beta = min(beta, move_evaluation)
-                    if beta <= alpha:
+                    if beta >= alpha:
                         break
                 return min_evaluation
 
-        # Apply minimax to all the legal moves
-        depth = 3
-        alpha = -math.inf
-        beta = math.inf
-        for move in legal_moves:
-            board.push(move)
-            move_value = min_max(board, depth - 1, False, alpha, beta)
-            move_values.append(MoveValue(move, move_value))
-            board.pop()
+        # Iterative deepening
+        def iterative_deepening(board, max_depth):
+            best_move = None
+            alpha = -math.inf
+            beta = math.inf
+            
+            for current_depth in range(1, max_depth + 1):
+                move_values.clear()  # Clear previous move evaluations
+                print(f'Searching at depth {current_depth}...')
 
-        # Sort moves from best to worst (descending)
-        if board.turn == chess.WHITE:
-            move_values.sort(key=lambda mv: mv.value, reverse=True)
-        else:
-            move_values.sort(key=lambda mv: mv.value, reverse=False)
-            for move_value in move_values:
-                print(f'{move_value.move} {move_value.value}')
+                # Apply minimax at the current depth
+                for mv in legal_move_values:
+                    board.push(mv.move)
+                    move_value = min_max(board, current_depth - 1, False, alpha, beta)
+                    move_values.append(MoveValue(mv.move, move_value))
+                    board.pop()
 
-        # This can be extended to consider the top 3 moves
-        top_move = move_values[0]
+                # Sort moves from best to worst
+                if board.turn == chess.WHITE:
+                    move_values.sort(key=lambda mv: mv.value, reverse=True)
+                else:
+                    move_values.sort(key=lambda mv: mv.value, reverse=False)
+
+                # Keep track of the best move at this depth
+                best_move = move_values[0]
+
+            return best_move
+
+        # Set the maximum depth for iterative deepening
+        max_depth = 3
+        top_move = iterative_deepening(board, max_depth)
 
         print(f'Best move: {top_move.move} with an evaluation of {top_move.value}')
-
         return PlayResult(top_move.move, None)
+
 
 # Below are the example engines 
 
