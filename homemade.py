@@ -134,7 +134,7 @@ class RCAI_Tanh(MinimalEngine):
                     min_evaluation = min(min_evaluation, move_evaluation)
                     board.pop()
                     beta = min(beta, move_evaluation)
-                    if beta >= alpha:
+                    if beta <= alpha:
                         break
                 return min_evaluation
 
